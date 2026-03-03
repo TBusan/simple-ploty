@@ -20,6 +20,13 @@
     .nav a { color: #0066cc; text-decoration: none; }
     .nav a:hover { text-decoration: underline; }
   </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "zrender": "https://cdn.jsdelivr.net/npm/zrender@5/+esm"
+      }
+    }
+  </script>
 </head>
 <body>
   <div class="container">
@@ -52,7 +59,6 @@
 }</pre>
     </div>
   </div>
-
   <script type="module">
     import * as zrender from 'https://cdn.jsdelivr.net/npm/zrender@5/+esm';
     import { MarchingSquares, PathFinder } from '../../dist/zrender-contour.esm.js';

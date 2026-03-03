@@ -11,6 +11,11 @@ export interface ContourOption {
   /** y 坐标（可选） */
   y?: number[];
 
+  /** 宽度（像素，可选，默认为容器宽度） */
+  width?: number;
+  /** 高度（像素，可选，默认为容器高度） */
+  height?: number;
+
   /** 等值线配置 */
   contours?: {
     /** 着色模式 */

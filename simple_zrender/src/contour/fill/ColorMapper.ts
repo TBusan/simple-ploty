@@ -87,8 +87,12 @@ export class ColorMapper {
 
   /**
    * 解析色阶定义
+   * 支持多种格式：
+   * - 字符串名称（如 'Viridis'）
+   * - ColorScale[] 对象数组 [{ value: 0, color: '#xxx' }, ...]
+   * - Plotly 风格元组 [[0, '#xxx'], [0.5, '#yyy'], ...]
    */
-  private resolveColorScale(colorScale: string | ColorScale[]): ColorScale[] {
+  private resolveColorScale(colorScale: string | ColorScale[] | [number, string][]): ColorScale[] {
     if (typeof colorScale === 'string') {
       const predefined = COLOR_SCALES[colorScale];
       if (!predefined) {
@@ -97,7 +101,20 @@ export class ColorMapper {
       }
       return predefined;
     }
-    return colorScale;
+
+    // 检查是否是 Plotly 风格的元组格式 [[number, string], ...]
+    if (Array.isArray(colorScale) && colorScale.length > 0) {
+      const first = colorScale[0];
+      if (Array.isArray(first)) {
+        // 转换元组格式为对象格式
+        return (colorScale as [number, string][]).map(([value, color]) => ({
+          value,
+          color
+        }));
+      }
+    }
+
+    return colorScale as ColorScale[];
   }
 
   /**

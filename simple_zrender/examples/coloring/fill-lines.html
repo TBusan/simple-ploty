@@ -20,6 +20,13 @@
     .nav a { color: #0066cc; text-decoration: none; }
     .nav a:hover { text-decoration: underline; }
   </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "zrender": "https://cdn.jsdelivr.net/npm/zrender@5/+esm"
+      }
+    }
+  </script>
 </head>
 <body>
   <div class="container">
@@ -88,6 +95,38 @@ zr.add(line);</pre>
     const ms = new MarchingSquares(data, levels);
     const levelInfo = ms.computeLevels();
 
+    // 边界坐标
+    const boundaryLeft = margin;
+    const boundaryRight = margin + nx * scaleX;
+    const boundaryTop = margin;
+    const boundaryBottom = margin + ny * scaleY;
+
+    // 边界角落（顺时针：左下、右下、右上、左上）
+    const corners = [
+      { x: 0, y: 0 },
+      { x: nx, y: 0 },
+      { x: nx, y: ny },
+      { x: 0, y: ny }
+    ];
+
+    // 获取点所在的边（0:下, 1:右, 2:上, 3:左）
+    const getEdgeIndex = (p) => {
+      const eps = 0.01;
+      if (Math.abs(p.y) < eps) return 0;
+      if (Math.abs(p.x - nx) < eps) return 1;
+      if (Math.abs(p.y - ny) < eps) return 2;
+      if (Math.abs(p.x) < eps) return 3;
+      return -1;
+    };
+
+    // 渲染最底层（整个矩形）
+    const baseColor = getColor(0);
+    zr.add(new zrender.Rect({
+      shape: { x: margin, y: margin, width: nx * scaleX, height: ny * scaleY },
+      style: { fill: baseColor, stroke: 'none' },
+      z: 0
+    }));
+
     // 阶段1：从外到内渲染填充
     for (let i = levels.length - 1; i >= 0; i--) {
       const level = levels[i];
@@ -99,6 +138,7 @@ zr.add(line);</pre>
 
       const color = getColor(level);
 
+      // 渲染内部闭合路径
       for (const path of result.paths) {
         if (path.length < 3) continue;
         const points = path.map(p => [
@@ -108,6 +148,40 @@ zr.add(line);</pre>
 
         zr.add(new zrender.Polygon({
           shape: { points },
+          style: { fill: color, stroke: 'none' }
+        }));
+      }
+
+      // 渲染边界路径（连接边界形成闭合区域）
+      for (const path of result.edgePaths) {
+        if (path.length < 2) continue;
+
+        const start = path[0];
+        const end = path[path.length - 1];
+        const startEdge = getEdgeIndex(start);
+        const endEdge = getEdgeIndex(end);
+
+        // 构建闭合路径
+        const boundaryPoints = path.map(p => [
+          margin + p.x * scaleX,
+          margin + p.y * scaleY
+        ]);
+
+        // 沿顺时针方向从起点到终点添加角落
+        if (startEdge >= 0 && endEdge >= 0) {
+          let edge = startEdge;
+          while (edge !== endEdge) {
+            edge = (edge + 1) % 4;
+            const corner = corners[edge];
+            boundaryPoints.push([
+              margin + corner.x * scaleX,
+              margin + corner.y * scaleY
+            ]);
+          }
+        }
+
+        zr.add(new zrender.Polygon({
+          shape: { points: boundaryPoints },
           style: { fill: color, stroke: 'none' }
         }));
       }

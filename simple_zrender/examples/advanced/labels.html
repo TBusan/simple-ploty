@@ -22,6 +22,13 @@
     .nav a { color: #0066cc; text-decoration: none; }
     .nav a:hover { text-decoration: underline; }
   </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "zrender": "https://cdn.jsdelivr.net/npm/zrender@5/+esm"
+      }
+    }
+  </script>
 </head>
 <body>
   <div class="container">
@@ -31,13 +38,14 @@
       设置 <code>contours.showlabels: true</code> 可以在等值线上显示数值标签。
       标签会智能放置在等值线的平坦区域，避免重叠。
     </p>
-    <div class="canvas-container">等值线渲染区域</div>
+    <div id="main" style="border: 1px solid #ddd; background: #fff; height: 300px; border-radius: 4px;"></div>
     <div class="info-panel">
       <strong>当前配置：</strong>
       <pre id="output"></pre>
     </div>
     <div class="code-block">
-      <pre><span class="keyword">const</span> contour = <span class="keyword">new</span> Contour({
+      <pre><span class="keyword">const</span> zr = zrender.init(document.getElementById(<span class="string">'main'</span>));
+<span class="keyword">const</span> contour = <span class="keyword">new</span> Contour({
   z: data.z,
   x: data.x,
   y: data.y,
@@ -53,18 +61,26 @@
     width: <span class="number">1</span>,
     smoothing: <span class="number">1</span>
   }
-});</pre>
+});
+zr.add(contour);</pre>
     </div>
   </div>
 
   <script type="module">
+    import * as zrender from 'https://cdn.jsdelivr.net/npm/zrender@5/+esm';
     import { Contour } from '../../dist/zrender-contour.esm.js';
     import { gaussianGrid } from '../shared/data.js';
+
+    const zr = zrender.init(document.getElementById('main'));
+    const width = zr.getWidth();
+    const height = zr.getHeight();
 
     const contour = new Contour({
       z: gaussianGrid.z,
       x: gaussianGrid.x,
       y: gaussianGrid.y,
+      width,
+      height,
       contours: {
         coloring: 'fill',
         showlabels: true,
@@ -78,6 +94,7 @@
         smoothing: 1
       }
     });
+    zr.add(contour);
 
     const option = contour.getOption();
     document.getElementById('output').textContent =
