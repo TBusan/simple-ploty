@@ -170,24 +170,33 @@
                         const midIndex = Math.floor(points.length / 2);
                         const labelPos = points[midIndex];
 
-                        // Create canvas texture for label
+                        // Create canvas texture for label (transparent background)
                         const canvas = document.createElement('canvas');
-                        canvas.width = 64;
-                        canvas.height = 32;
+                        canvas.width = 80;
+                        canvas.height = 40;
                         const ctx = canvas.getContext('2d');
-                        ctx.fillStyle = 'white';
-                        ctx.fillRect(0, 0, 64, 32);
-                        ctx.fillStyle = color;
-                        ctx.font = 'bold 16px Arial';
+                        ctx.font = 'bold 20px Arial';
                         ctx.textAlign = 'center';
-                        ctx.fillText(level.toFixed(2), 32, 22);
+                        ctx.textBaseline = 'middle';
+                        // Add text stroke for better visibility
+                        ctx.strokeStyle = 'white';
+                        ctx.lineWidth = 3;
+                        ctx.strokeText(level.toFixed(2), 40, 20);
+                        // Fill text with contour color
+                        ctx.fillStyle = color;
+                        ctx.fillText(level.toFixed(2), 40, 20);
 
                         const texture = new THREE.CanvasTexture(canvas);
-                        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+                        texture.needsUpdate = true;
+                        const spriteMaterial = new THREE.SpriteMaterial({
+                            map: texture,
+                            transparent: true,
+                            depthTest: false
+                        });
                         const sprite = new THREE.Sprite(spriteMaterial);
                         sprite.position.copy(labelPos);
                         sprite.position.z += 0.1;
-                        sprite.scale.set(1.5, 0.75, 1);
+                        sprite.scale.set(1.2, 0.6, 1);
                         labelsGroup.add(sprite);
                     }
                 }
