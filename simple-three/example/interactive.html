@@ -129,7 +129,9 @@
             ColorScale,
             CatmullRom,
             makeColorMap,
-            BUILT_IN_COLORSCALES
+            BUILT_IN_COLORSCALES,
+            FillRenderer,
+            LineRenderer
         } from '../dist/three-contour.esm.js';
 
         // Scene setup
@@ -181,6 +183,9 @@
         let contourGroup = new THREE.Group();
         scene.add(contourGroup);
 
+        let fillRenderer = null;
+        let lineRenderer = null;
+
         // Settings
         let settings = {
             colorScale: 'Viridis',
@@ -194,10 +199,15 @@
         const zmax = 5;
 
         function createContours() {
-            scene.remove(contourGroup);
-            contourGroup = new THREE.Group();
-
-            const colorScale = new ColorScale(settings.colorScale, settings.reverseScale);
+            // Clean up previous renderers
+            if (fillRenderer) {
+                fillRenderer.dispose();
+                fillRenderer = null;
+            }
+            if (lineRenderer) {
+                lineRenderer.dispose();
+                lineRenderer = null;
+            }
 
             // Create levels
             const step = (zmax - zmin) / (settings.levelCount + 1);
@@ -209,45 +219,51 @@
             const showFill = settings.coloringMode === 'fill' || settings.coloringMode === 'both';
             const showLines = settings.coloringMode === 'lines' || settings.coloringMode === 'both';
 
-            // Create fills (draw from lowest to highest)
-            if (showFill) {
-                for (const level of levels) {
-                    const paths = pathFinder.findPaths(level);
-                    const normalizedValue = (level - zmin) / (zmax - zmin);
-                    const color = colorScale.getColor(normalizedValue);
-
-                    for (const path of paths) {
-                        if (path.points.length < 3 || !path.isClosed) continue;
-
-                        const shape = new THREE.Shape();
-                        const points = path.points;
-
-                        shape.moveTo(
-                            (points[0].x - 40) * 0.2,
-                            (40 - points[0].y) * 0.2
-                        );
-
-                        for (let j = 1; j < points.length; j++) {
-                            shape.lineTo(
-                                (points[j].x - 40) * 0.2,
-                                (40 - points[j].y) * 0.2
-                            );
-                        }
-                        shape.closePath();
-
-                        const geometry = new THREE.ShapeGeometry(shape);
-                        const material = new THREE.MeshBasicMaterial({
-                            color,
-                            side: THREE.DoubleSide
-                        });
-                        const mesh = new THREE.Mesh(geometry, material);
-                        contourGroup.add(mesh);
-                    }
+            // Collect all paths for all levels
+            const allPaths = [];
+            for (const level of levels) {
+                const paths = pathFinder.findPaths(level);
+                for (const path of paths) {
+                    // Apply coordinate transformation
+                    const transformedPath = {
+                        level: path.level,
+                        points: path.points.map(p => ({
+                            x: (p.x - 40) * 0.2,
+                            y: (40 - p.y) * 0.2
+                        })),
+                        isClosed: path.isClosed
+                    };
+                    allPaths.push(transformedPath);
                 }
             }
 
-            // Create lines
+            // Create trace object for renderers
+            const trace = {
+                z: data,
+                zmin,
+                zmax,
+                paths: allPaths,
+                colorscale: settings.colorScale,
+                reversescale: settings.reverseScale,
+                contours: {
+                    start: levels[0],
+                    end: levels[levels.length - 1],
+                    size: step,
+                    coloring: showFill ? 'fill' : 'lines',
+                    showlines: showLines
+                }
+            };
+
+            // Create fill renderer
+            if (showFill) {
+                fillRenderer = new FillRenderer(scene, trace);
+            }
+
+            // Create line renderer manually (since LineRenderer expects different format)
             if (showLines) {
+                const lineGroup = new THREE.Group();
+                const colorScale = new ColorScale(settings.colorScale, settings.reverseScale);
+
                 for (const level of levels) {
                     const paths = pathFinder.findPaths(level);
                     const lineColor = showFill ? 0x000000 : colorScale.getColor((level - zmin) / (zmax - zmin));
@@ -275,15 +291,16 @@
                             color: lineColor,
                             linewidth: 1,
                             transparent: showFill,
-                            opacity: showFill ? 0.5 : 1
+                            opacity: showFill ? 0.7 : 1
                         });
                         const line = new THREE.Line(geometry, material);
-                        contourGroup.add(line);
+                        lineGroup.add(line);
                     }
                 }
+                scene.add(lineGroup);
+                lineRenderer = { dispose: () => scene.remove(lineGroup) };
             }
 
-            scene.add(contourGroup);
             updateColorbar();
         }
 
@@ -352,7 +369,7 @@
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
             raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(contourGroup.children);
+            const intersects = raycaster.intersectObjects(scene.children, true);
 
             if (intersects.length > 0) {
                 const point = intersects[0].point;
