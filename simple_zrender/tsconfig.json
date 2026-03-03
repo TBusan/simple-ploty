@@ -1,0 +1,51 @@
+{
+  "compilerOptions": {
+    /* 基本选项 */
+    "target": "ES2020",
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM"],
+
+    /* 模块解析选项 */
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* 输出配置 */
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "sourceMap": true,
+
+    /* 类型检查 */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* 其他选项 */
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* 路径映射 */
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"],
+      "@contour/*": ["src/contour/*"],
+      "@util/*": ["src/util/*"],
+      "@types/*": ["src/types/*"]
+    }
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "examples"
+  ]
+}

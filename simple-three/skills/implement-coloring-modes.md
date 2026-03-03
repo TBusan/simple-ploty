@@ -4,6 +4,53 @@ description: Use when implementing contour coloring modes (fill, heatmap, lines,
 
 # 着色模式实现技能
 
+## 🎯 对应开发阶段
+
+- **Phase 5**: 着色模式实现
+- **Phase 6**: 颜色映射与色阶
+
+## 🚀 何时使用本技能
+
+### 调用时机
+
+在以下情况下，**必须先阅读本 Skill 文档**：
+
+1. **创建文件时**:
+   ```bash
+   # 当你开始创建以下文件时
+   touch src/rendering/FillRenderer.ts
+   touch src/rendering/LineRenderer.ts
+   touch src/rendering/HeatmapRenderer.ts
+   touch src/coloring/ColorMap.ts
+   # → 停下！先阅读本 Skill
+   ```
+
+2. **实现以下功能时**:
+   - 填充模式 (coloring: 'fill')
+   - 热力图模式 (coloring: 'heatmap')
+   - 线条模式 (coloring: 'lines')
+   - 无着色模式 (coloring: 'none')
+   - 颜色映射函数
+
+3. **遇到以下问题时**:
+   - Fill 和 Lines 颜色不一致
+   - 颜色条与等值线不匹配
+   - 不确定如何实现双线性插值
+
+### 如何使用
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. 确定你要实现的着色模式                                    │
+│    ↓                                                         │
+│ 2. 阅读对应模式的实现部分                                    │
+│    ↓                                                         │
+│ 3. 参考"颜色一致性"部分确保正确                              │
+│    ↓                                                         │
+│ 4. 运行验收测试验证实现                                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ## 触发条件
 
 当需要实现等值线的着色模式时使用此技能。

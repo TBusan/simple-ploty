@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>等值线级别 | zrender-contour</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f9f9f9; }
+    .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem 0; color: #333; }
+    .description { color: #666; margin-bottom: 1.5rem; line-height: 1.6; }
+    #main { border: 1px solid #ddd; background: #fff; height: 400px; border-radius: 4px; }
+    .code-block { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 4px; overflow-x: auto; margin-top: 1.5rem; }
+    pre { margin: 0; font-size: 13px; font-family: 'Consolas', 'Monaco', monospace; }
+    .keyword { color: #569cd6; }
+    .string { color: #ce9178; }
+    .number { color: #b5cea8; }
+    .comment { color: #6a9955; }
+    .nav { margin-bottom: 1rem; }
+    .nav a { color: #0066cc; text-decoration: none; }
+    .nav a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav"><a href="../index.html">← 返回示例列表</a></div>
+    <h1>等值线级别</h1>
+    <p class="description">
+      自定义等值线级别：通过 <code>start</code>、<code>end</code> 和 <code>size</code> 控制级别间隔。
+      本示例使用 5 个等间距级别。
+    </p>
+    <div id="main"></div>
+    <div class="code-block">
+      <pre><span class="comment">// 定义等值线级别</span>
+<span class="keyword">const</span> start = <span class="number">0.2</span>;
+<span class="keyword">const</span> end = <span class="number">0.8</span>;
+<span class="keyword">const</span> size = <span class="number">0.15</span>;
+<span class="keyword">const</span> levels = [];
+<span class="keyword">for</span> (<span class="keyword">let</span> v = start; v <= end; v += size) {
+  levels.push(v);
+}
+
+<span class="keyword">const</span> ms = <span class="keyword">new</span> MarchingSquares(data, levels);</pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as zrender from 'https://cdn.jsdelivr.net/npm/zrender@5/+esm';
+    import { MarchingSquares, PathFinder } from '../../dist/zrender-contour.esm.js';
+    import { gaussianGrid } from '../shared/data.js';
+
+    // 自定义级别
+    const start = 0.2, end = 0.8, size = 0.15;
+    const levels = [];
+    for (let v = start; v <= end; v += size) {
+      levels.push(Math.round(v * 100) / 100);
+    }
+
+    // 初始化 ZRender
+    const zr = zrender.init(document.getElementById('main'));
+    const width = zr.getWidth();
+    const height = zr.getHeight();
+    const margin = 40;
+
+    const data = gaussianGrid;
+    const nx = data.z[0].length, ny = data.z.length;
+    const scaleX = (width - 2 * margin) / nx;
+    const scaleY = (height - 2 * margin) / ny;
+
+    // 计算等值线
+    const ms = new MarchingSquares(data, levels);
+    const levelInfo = ms.computeLevels();
+
+    // 渲染
+    levels.forEach((level, idx) => {
+      const info = levelInfo.get(level);
+      if (!info) return;
+
+      const finder = new PathFinder(data, info);
+      const result = finder.findAllPaths();
+
+      const t = idx / (levels.length - 1);
+      const color = `rgb(${Math.round(44 + 200 * t)}, ${Math.round(100 + 100 * (1-t))}, ${Math.round(200 - 150 * t)})`;
+
+      for (const path of [...result.paths, ...result.edgePaths]) {
+        if (path.length < 2) return;
+        const points = path.map(p => [
+          margin + p.x * scaleX,
+          margin + p.y * scaleY
+        ]);
+        if (result.paths.includes(path)) points.push(points[0]);
+
+        zr.add(new zrender.Polyline({
+          shape: { points },
+          style: { stroke: color, lineWidth: 2, fill: 'none' }
+        }));
+      }
+
+      // 添加级别标签
+      const lastPath = result.paths[result.paths.length - 1] || result.edgePaths[result.edgePaths.length - 1];
+      if (lastPath && lastPath.length > 0) {
+        const pt = lastPath[Math.floor(lastPath.length / 2)];
+        zr.add(new zrender.Text({
+          style: {
+            text: level.toFixed(2),
+            x: margin + pt.x * scaleX + 5,
+            y: margin + pt.y * scaleY,
+            fontSize: 11,
+            fill: color
+          }
+        }));
+      }
+    });
+  </script>
+</body>
+</html>

@@ -4,6 +4,50 @@ description: Use when implementing the Marching Squares algorithm for contour ge
 
 # Marching Squares 算法实现技能
 
+## 🎯 对应开发阶段
+
+- **Phase 2**: Marching Squares 核心算法
+- **Phase 3**: 路径追踪算法
+
+## 🚀 何时使用本技能
+
+### 调用时机
+
+在以下情况下，**必须先阅读本 Skill 文档**：
+
+1. **创建文件时**:
+   ```bash
+   # 当你开始创建以下文件时
+   touch src/algorithms/MarchingSquares.ts
+   touch src/algorithms/constants.ts
+   # → 停下！先阅读本 Skill
+   ```
+
+2. **实现以下函数时**:
+   - `getMarchingIndex()` - 索引计算
+   - `handleSaddlePoint()` - 鞍点处理
+   - 边界起点识别
+
+3. **编写测试时**:
+   - Marching Squares 相关单元测试
+   - 鞍点处理测试
+
+### 如何使用
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. 阅读"实现清单"部分                                        │
+│    ↓                                                         │
+│ 2. 复制/参考"关键代码"中的实现                               │
+│    ↓                                                         │
+│ 3. 创建对应的文件和函数                                      │
+│    ↓                                                         │
+│ 4. 运行"验收测试"中的测试用例                                │
+│    ↓                                                         │
+│ 5. 检查"常见问题"避免错误                                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ## 触发条件
 
 当需要实现 Marching Squares 算法来生成等值线时使用此技能。

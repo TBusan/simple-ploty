@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>交互事件 | zrender-contour</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f9f9f9; }
+    .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem 0; color: #333; }
+    .description { color: #666; margin-bottom: 1.5rem; line-height: 1.6; }
+    .canvas-container { border: 1px solid #ddd; background: #fafafa; height: 300px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999; cursor: crosshair; }
+    .info-panel { background:#e8f5e9;padding:12px;border-radius:4px;margin-top:1rem; }
+    .info-panel pre { margin:8px 0 0 0;font-size:12px;white-space:pre-wrap; }
+    .code-block { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 4px; overflow-x: auto; margin-top: 1.5rem; }
+    pre { margin: 0; font-size: 13px; font-family: 'Consolas', 'Monaco', monospace; }
+    .keyword { color: #569cd6; }
+    .string { color: #ce9178; }
+    .number { color: #b5cea8; }
+    .comment { color: #6a9955; }
+    .nav { margin-bottom: 1rem; }
+    .nav a { color: #0066cc; text-decoration: none; }
+    .nav a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav"><a href="../index.html">← 返回示例列表</a></div>
+    <h1>交互事件</h1>
+    <p class="description">
+      支持鼠标悬停、缩放、平移等交互。悬停时显示当前位置的数据值。
+      使用鼠标滚轮缩放，拖拽平移视图。
+    </p>
+    <div class="canvas-container" id="main">等值线渲染区域</div>
+    <div class="info-panel">
+      <strong>交互说明：</strong>
+      <pre id="output">渲染完成后可进行交互操作</pre>
+    </div>
+    <div class="code-block">
+      <pre><span class="comment">// 鼠标悬停事件</span>
+chart.on(<span class="string">'mouseover'</span>, (event) => {
+  <span class="keyword">const</span> { x, y, value } = event;
+  console.log(<span class="string">`位置: (</span>${x}<span class="string">, </span>${y}<span class="string">), 值: </span>${value}<span class="string">`</span>);
+});
+
+<span class="comment">// 缩放事件</span>
+chart.on(<span class="string">'zoom'</span>, (event) => {
+  console.log(<span class="string">'缩放级别:'</span>, event.scale);
+});</pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Contour } from '../../dist/zrender-contour.esm.js';
+    import { terrainGrid } from '../shared/data.js';
+
+    const contour = new Contour({
+      z: terrainGrid.z,
+      x: terrainGrid.x,
+      y: terrainGrid.y,
+      contours: {
+        coloring: 'fill'
+      }
+    });
+
+    document.getElementById('output').textContent =
+      `数据尺寸: ${terrainGrid.z[0].length} x ${terrainGrid.z.length}\n` +
+      `支持的交互:\n` +
+      `  - 鼠标悬停: 显示数据值\n` +
+      `  - 滚轮: 缩放\n` +
+      `  - 拖拽: 平移\n` +
+      `\n注: 交互功能需在渲染实现后启用`;
+  </script>
+</body>
+</html>

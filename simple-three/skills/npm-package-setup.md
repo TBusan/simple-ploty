@@ -4,6 +4,57 @@ description: Use when setting up the npm package infrastructure for the three-co
 
 # NPM 包设置技能
 
+## 🎯 对应开发阶段
+
+- **Phase 1**: 项目基础设施
+- **Phase 14**: 文档与发布
+
+## 🚀 何时使用本技能
+
+### 调用时机
+
+在以下情况下，**必须先阅读本 Skill 文档**：
+
+1. **创建新项目时**:
+   ```bash
+   mkdir simple-three && cd simple-three
+   # → 停下！先阅读本 Skill
+   ```
+
+2. **创建配置文件时**:
+   - package.json
+   - tsconfig.json
+   - rollup.config.js
+   - vitest.config.ts
+   - .eslintrc.cjs
+   - .prettierrc
+
+3. **准备发布时**:
+   - npm login
+   - npm publish
+
+### 如何使用
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 创建项目阶段:                                                │
+│ 1. 复制 package.json 和 tsconfig.json                       │
+│    ↓                                                         │
+│ 2. 创建 rollup.config.js                                     │
+│    ↓                                                         │
+│ 3. 运行 npm install 安装依赖                                 │
+│    ↓                                                         │
+│ 4. 运行 npm run build 验证构建                               │
+├─────────────────────────────────────────────────────────────┤
+│ 发布阶段:                                                    │
+│ 1. 检查"发布检查清单"                                        │
+│    ↓                                                         │
+│ 2. npm login                                                 │
+│    ↓                                                         │
+│ 3. npm publish                                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ## 触发条件
 
 当需要设置 npm 项目基础设施时使用此技能。

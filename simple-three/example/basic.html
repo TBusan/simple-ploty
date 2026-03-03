@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three-Contour Basic Example</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="info">
+        <h3>Three-Contour Basic Example</h3>
+        <p>Simple contour plot with default settings</p>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.150.0/build/three.module.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'https://unpkg.com/three@0.150.0/examples/jsm/controls/OrbitControls.js';
+
+        // Import from local dist (run npm run build first)
+        // For production, use: import { ... } from 'three-contour';
+        import {
+            PathFinder,
+            ColorScale,
+            makeColorMap,
+            findAllPaths,
+            getMarchingIndex
+        } from '../dist/three-contour.esm.js';
+
+        // Create scene
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+
+        // Create camera
+        const camera = new THREE.PerspectiveCamera(
+            50,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(0, 0, 15);
+
+        // Create renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // Add controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Generate sample data (Gaussian function)
+        function generateData(nx, ny) {
+            const data = [];
+            for (let j = 0; j < ny; j++) {
+                const row = [];
+                for (let i = 0; i < nx; i++) {
+                    const x = (i - nx / 2) / (nx / 4);
+                    const y = (j - ny / 2) / (ny / 4);
+                    // Gaussian function
+                    const value = Math.exp(-(x * x + y * y));
+                    row.push(value);
+                }
+                data.push(row);
+            }
+            return data;
+        }
+
+        const data = generateData(50, 50);
+        console.log('=== Debug Info ===');
+        console.log('Data dimensions:', data.length, 'x', data[0].length);
+        console.log('Data center (25,25):', data[25][25].toFixed(4), '(expected ~1.0)');
+        console.log('Data corner (0,0):', data[0][0].toFixed(4), '(expected ~0.0)');
+
+        const pathFinder = new PathFinder(data);
+
+        // Debug: Check marching index for level 0.5 at a specific cell
+        const testLevel = 0.5;
+        const testXi = 20, testYi = 20;
+        const testCorners = [
+            [data[testYi][testXi], data[testYi][testXi + 1]],
+            [data[testYi + 1][testXi], data[testYi + 1][testXi + 1]]
+        ];
+        console.log(`\n=== Marching Index Debug ===`);
+        console.log(`Cell (${testXi}, ${testYi}) at level ${testLevel}:`);
+        console.log('Corners:', testCorners.map(r => r.map(v => v.toFixed(3))));
+        console.log('Marching index:', getMarchingIndex(testLevel, testCorners));
+
+        // Count cells with crossings for level 0.5
+        let crossingCount = 0;
+        for (let yi = 0; yi < 49; yi++) {
+            for (let xi = 0; xi < 49; xi++) {
+                const corners = [
+                    [data[yi][xi], data[yi][xi + 1]],
+                    [data[yi + 1][xi], data[yi + 1][xi + 1]]
+                ];
+                const mi = getMarchingIndex(testLevel, corners);
+                if (mi !== 0 && mi !== 15) crossingCount++;
+            }
+        }
+        console.log(`Cells with crossings at level ${testLevel}: ${crossingCount}`);
+
+        // Define contour levels
+        const levels = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+
+        // Create color scale
+        const colorScale = new ColorScale('Viridis');
+
+        // Create contour lines
+        const contourGroup = new THREE.Group();
+
+        let totalPaths = 0;
+        let totalPoints = 0;
+
+        for (const level of levels) {
+            const paths = pathFinder.findPaths(level);
+            console.log(`Level ${level}: found ${paths.length} paths`);
+            totalPaths += paths.length;
+
+            const color = colorScale.getColor(level);
+
+            for (const path of paths) {
+                if (path.points.length < 2) continue;
+                totalPoints += path.points.length;
+
+                const points = path.points.map(p =>
+                    new THREE.Vector3(
+                        (p.x - 25) * 0.2,  // Center and scale
+                        (25 - p.y) * 0.2,
+                        0
+                    )
+                );
+
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({ color });
+                const line = new THREE.Line(geometry, material);
+                contourGroup.add(line);
+            }
+        }
+
+        console.log('Total paths:', totalPaths);
+        console.log('Total points:', totalPoints);
+        console.log('Contour group children:', contourGroup.children.length);
+
+        scene.add(contourGroup);
+        console.log('Scene children:', scene.children.length);
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

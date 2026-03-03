@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Null 数据处理 | zrender-contour</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f9f9f9; }
+    .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem 0; color: #333; }
+    .description { color: #666; margin-bottom: 1.5rem; line-height: 1.6; }
+    .canvas-container { border: 1px solid #ddd; background: #fafafa; height: 300px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999; }
+    .info-panel { background:#fff3e0;padding:12px;border-radius:4px;margin-top:1rem; }
+    .info-panel pre { margin:8px 0 0 0;font-size:12px;white-space:pre-wrap; }
+    .code-block { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 4px; overflow-x: auto; margin-top: 1.5rem; }
+    pre { margin: 0; font-size: 13px; font-family: 'Consolas', 'Monaco', monospace; }
+    .keyword { color: #569cd6; }
+    .string { color: #ce9178; }
+    .number { color: #b5cea8; }
+    .comment { color: #6a9955; }
+    .nav { margin-bottom: 1rem; }
+    .nav a { color: #0066cc; text-decoration: none; }
+    .nav a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav"><a href="../index.html">← 返回示例列表</a></div>
+    <h1>Null 数据处理</h1>
+    <p class="description">
+      数据矩阵中可以包含 <code>null</code> 值表示缺失数据。
+      等值线会自动绕过这些区域，不进行绘制。
+    </p>
+    <div class="canvas-container">等值线渲染区域</div>
+    <div class="info-panel">
+      <strong>数据预览：</strong>
+      <pre id="output"></pre>
+    </div>
+    <div class="code-block">
+      <pre><span class="keyword">const</span> contour = <span class="keyword">new</span> Contour({
+  z: [
+    [<span class="number">1</span>, <span class="number">2</span>, <span class="keyword">null</span>, <span class="number">4</span>, <span class="number">5</span>],
+    [<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>],
+    [<span class="keyword">null</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>],
+    [<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>],
+    [<span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">9</span>]
+  ],
+  contours: {
+    coloring: <span class="string">'fill'</span>
+  }
+});</pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Contour } from '../../dist/zrender-contour.esm.js';
+    import { nullDataGrid } from '../shared/data.js';
+
+    const contour = new Contour({
+      z: nullDataGrid.z,
+      x: nullDataGrid.x,
+      y: nullDataGrid.y,
+      contours: {
+        coloring: 'fill'
+      }
+    });
+
+    // 统计 null 值
+    let nullCount = 0;
+    const totalCells = nullDataGrid.z.length * nullDataGrid.z[0].length;
+    nullDataGrid.z.forEach(row => {
+      row.forEach(val => {
+        if (val === null) nullCount++;
+      });
+    });
+
+    // 格式化数据显示
+    const zPreview = nullDataGrid.z.map(row =>
+      '[' + row.map(v => v === null ? 'null' : v).join(', ') + ']'
+    ).join('\n ');
+
+    document.getElementById('output').textContent =
+      `数据矩阵:\n ${zPreview}\n\n` +
+      `Null 值数量: ${nullCount} / ${totalCells}`;
+  </script>
+</body>
+</html>

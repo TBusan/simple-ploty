@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>等值线标签 | zrender-contour</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f9f9f9; }
+    .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem 0; color: #333; }
+    .description { color: #666; margin-bottom: 1.5rem; line-height: 1.6; }
+    .canvas-container { border: 1px solid #ddd; background: #fafafa; height: 300px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999; }
+    .info-panel { background:#e1f5fe;padding:12px;border-radius:4px;margin-top:1rem; }
+    .info-panel pre { margin:8px 0 0 0;font-size:12px;white-space:pre-wrap; }
+    .code-block { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 4px; overflow-x: auto; margin-top: 1.5rem; }
+    pre { margin: 0; font-size: 13px; font-family: 'Consolas', 'Monaco', monospace; }
+    .keyword { color: #569cd6; }
+    .string { color: #ce9178; }
+    .number { color: #b5cea8; }
+    .comment { color: #6a9955; }
+    .nav { margin-bottom: 1rem; }
+    .nav a { color: #0066cc; text-decoration: none; }
+    .nav a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav"><a href="../index.html">← 返回示例列表</a></div>
+    <h1>等值线标签</h1>
+    <p class="description">
+      设置 <code>contours.showlabels: true</code> 可以在等值线上显示数值标签。
+      标签会智能放置在等值线的平坦区域，避免重叠。
+    </p>
+    <div class="canvas-container">等值线渲染区域</div>
+    <div class="info-panel">
+      <strong>当前配置：</strong>
+      <pre id="output"></pre>
+    </div>
+    <div class="code-block">
+      <pre><span class="keyword">const</span> contour = <span class="keyword">new</span> Contour({
+  z: data.z,
+  x: data.x,
+  y: data.y,
+  contours: {
+    coloring: <span class="string">'fill'</span>,
+    showlabels: <span class="keyword">true</span>,     <span class="comment">// 显示标签</span>
+    showlines: <span class="keyword">true</span>,
+    start: <span class="number">0.2</span>,
+    end: <span class="number">0.8</span>,
+    size: <span class="number">0.15</span>
+  },
+  line: {
+    width: <span class="number">1</span>,
+    smoothing: <span class="number">1</span>
+  }
+});</pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Contour } from '../../dist/zrender-contour.esm.js';
+    import { gaussianGrid } from '../shared/data.js';
+
+    const contour = new Contour({
+      z: gaussianGrid.z,
+      x: gaussianGrid.x,
+      y: gaussianGrid.y,
+      contours: {
+        coloring: 'fill',
+        showlabels: true,
+        showlines: true,
+        start: 0.2,
+        end: 0.8,
+        size: 0.15
+      },
+      line: {
+        width: 1,
+        smoothing: 1
+      }
+    });
+
+    const option = contour.getOption();
+    document.getElementById('output').textContent =
+      `显示标签: ${option.contours.showlabels ? '是' : '否'}\n` +
+      `显示线条: ${option.contours.showlines ? '是' : '否'}\n` +
+      `级别范围: ${option.contours.start} ~ ${option.contours.end}\n` +
+      `级别间隔: ${option.contours.size}`;
+  </script>
+</body>
+</html>

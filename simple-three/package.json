@@ -1,0 +1,57 @@
+{
+  "name": "three-contour",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Contour plot library for Three.js, compatible with Plotly.js contour features",
+  "main": "dist/three-contour.cjs.js",
+  "module": "dist/three-contour.esm.js",
+  "browser": "dist/three-contour.umd.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "build:watch": "rollup -c -w",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "docs": "typedoc src/index.ts --out docs",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "three.js",
+    "contour",
+    "visualization",
+    "webgl",
+    "isoline",
+    "marching-squares"
+  ],
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "three": "^0.150.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.0.0",
+    "@types/three": "^0.150.0",
+    "rollup": "^3.20.0",
+    "tslib": "^2.5.0",
+    "typescript": "^5.0.0",
+    "vitest": "^0.30.0",
+    "eslint": "^8.38.0",
+    "@typescript-eslint/eslint-plugin": "^5.59.0",
+    "@typescript-eslint/parser": "^5.59.0",
+    "prettier": "^2.8.0",
+    "typedoc": "^0.24.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "bugs": {
+    "url": ""
+  },
+  "homepage": ""
+}

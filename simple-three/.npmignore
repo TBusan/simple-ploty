@@ -1,0 +1,13 @@
+src/
+tests/
+*.test.ts
+*.spec.ts
+tsconfig.json
+rollup.config.js
+.eslintrc.cjs
+.prettierrc
+vitest.config.ts
+word/
+skills/
+examples/
+.gitignore

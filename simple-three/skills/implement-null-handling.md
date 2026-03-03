@@ -4,6 +4,52 @@ description: Use when implementing null data handling with connectgaps option an
 
 # 空值处理实现技能
 
+## 🎯 对应开发阶段
+
+- **Phase 9**: 空值处理
+
+## 🚀 何时使用本技能
+
+### 调用时机
+
+在以下情况下，**必须先阅读本 Skill 文档**：
+
+1. **创建文件时**:
+   ```bash
+   touch src/utils/NullHandler.ts
+   touch src/utils/Interpolation.ts
+   # → 停下！先阅读本 Skill
+   ```
+
+2. **实现以下功能时**:
+   - 空白点检测 (findEmpties)
+   - 泊松插值 (interp2d)
+   - 裁剪路径生成 (makeClipMask)
+   - connectgaps 选项处理
+
+3. **遇到以下问题时**:
+   - 数据中有 null 值导致崩溃
+   - connectgaps=true 时等值线不连续
+   - connectgaps=false 时空白区域显示不正确
+   - 插值不收敛
+
+### 如何使用
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. 确定要使用的模式 (connectgaps=true/false)                │
+│    ↓                                                         │
+│ 2. 如果 connectgaps=true:                                    │
+│    → 阅读"空白点检测"和"泊松插值"部分                        │
+│ 3. 如果 connectgaps=false:                                   │
+│    → 阅读"裁剪路径生成"部分                                  │
+│    ↓                                                         │
+│ 4. 创建对应的文件和函数                                      │
+│    ↓                                                         │
+│ 5. 运行验收测试验证插值收敛或裁剪正确                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ## 触发条件
 
 当需要处理等值线数据中的 null/undefined/NaN 值时使用此技能。

@@ -1,0 +1,57 @@
+{
+  "name": "zrender-contour",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Contour plot library based on ZRender, compatible with Plotly.js contour functionality",
+  "main": "dist/zrender-contour.js",
+  "module": "dist/zrender-contour.esm.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "dev": "rollup -c -w",
+    "lint": "eslint src --ext .ts,.tsx",
+    "docs": "typedoc --out docs src/index.ts",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "zrender",
+    "contour",
+    "chart",
+    "visualization",
+    "plotly",
+    "isoline",
+    "marching-squares"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "peerDependencies": {
+    "zrender": "^5.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "@rollup/plugin-typescript": "^11.0.0",
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.0.0",
+    "rollup": "^4.0.0",
+    "ts-jest": "^29.0.0",
+    "tslib": "^2.6.0",
+    "typedoc": "^0.25.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

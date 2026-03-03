@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自定义色阶 | zrender-contour</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f9f9f9; }
+    .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem 0; color: #333; }
+    .description { color: #666; margin-bottom: 1.5rem; line-height: 1.6; }
+    .canvas-container { border: 1px solid #ddd; background: #fafafa; height: 300px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999; }
+    .color-preview { display: flex; gap: 4px; margin-top: 8px; }
+    .color-preview span { width: 40px; height: 20px; border-radius: 4px; }
+    .info-panel { background:#fff8e1;padding:12px;border-radius:4px;margin-top:1rem; }
+    .info-panel pre { margin:8px 0 0 0;font-size:12px;white-space:pre-wrap; }
+    .code-block { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 4px; overflow-x: auto; margin-top: 1.5rem; }
+    pre { margin: 0; font-size: 13px; font-family: 'Consolas', 'Monaco', monospace; }
+    .keyword { color: #569cd6; }
+    .string { color: #ce9178; }
+    .number { color: #b5cea8; }
+    .comment { color: #6a9955; }
+    .nav { margin-bottom: 1rem; }
+    .nav a { color: #0066cc; text-decoration: none; }
+    .nav a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav"><a href="../index.html">← 返回示例列表</a></div>
+    <h1>自定义色阶</h1>
+    <p class="description">
+      通过 <code>colorscale</code> 自定义颜色映射。可以是预定义的色阶名称（如 'Viridis'），
+      或自定义的颜色数组，每个元素为 <code>[value, color]</code>，value 范围 0-1。
+    </p>
+    <div class="canvas-container">等值线渲染区域</div>
+    <div class="info-panel">
+      <strong>色阶预览：</strong>
+      <div class="color-preview" id="color-preview"></div>
+      <pre id="output"></pre>
+    </div>
+    <div class="code-block">
+      <pre><span class="comment">// 自定义色阶</span>
+<span class="keyword">const</span> customColorScale = [
+  [<span class="number">0</span>, <span class="string">'#000080'</span>],     <span class="comment">// 深蓝</span>
+  [<span class="number">0.25</span>, <span class="string">'#0066cc'</span>],  <span class="comment">// 蓝</span>
+  [<span class="number">0.5</span>, <span class="string">'#00ff00'</span>],   <span class="comment">// 绿</span>
+  [<span class="number">0.75</span>, <span class="string">'#ffcc00'</span>],  <span class="comment">// 黄</span>
+  [<span class="number">1</span>, <span class="string">'#ff0000'</span>]      <span class="comment">// 红</span>
+];
+
+<span class="keyword">const</span> contour = <span class="keyword">new</span> Contour({
+  z: data.z,
+  x: data.x,
+  y: data.y,
+  contours: { coloring: <span class="string">'fill'</span> },
+  colorscale: customColorScale
+});</pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Contour } from '../../dist/zrender-contour.esm.js';
+    import { terrainGrid } from '../shared/data.js';
+
+    const customColorScale = [
+      [0, '#000080'],
+      [0.25, '#0066cc'],
+      [0.5, '#00ff00'],
+      [0.75, '#ffcc00'],
+      [1, '#ff0000']
+    ];
+
+    const contour = new Contour({
+      z: terrainGrid.z,
+      x: terrainGrid.x,
+      y: terrainGrid.y,
+      contours: {
+        coloring: 'fill'
+      },
+      colorscale: customColorScale
+    });
+
+    // 显示色阶预览
+    const preview = document.getElementById('color-preview');
+    customColorScale.forEach(([value, color]) => {
+      const span = document.createElement('span');
+      span.style.background = color;
+      span.title = `${value}: ${color}`;
+      preview.appendChild(span);
+    });
+
+    document.getElementById('output').textContent =
+      `\n色阶点数: ${customColorScale.length}\n` +
+      `范围: 0 ~ 1`;
+  </script>
+</body>
+</html>

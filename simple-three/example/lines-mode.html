@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three-Contour Lines Mode Example</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            max-width: 250px;
+        }
+        #controls h3 {
+            margin-top: 0;
+        }
+        #controls label {
+            display: block;
+            margin: 5px 0;
+        }
+        #controls input[type="range"] {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="controls">
+        <h3>Lines Mode Options</h3>
+        <label>
+            Line Width: <span id="lineWidthValue">2</span>
+            <input type="range" id="lineWidth" min="1" max="5" step="0.5" value="2">
+        </label>
+        <label>
+            Level Count: <span id="levelCountValue">15</span>
+            <input type="range" id="levelCount" min="5" max="30" step="1" value="15">
+        </label>
+        <label>
+            <input type="checkbox" id="showLabels"> Show Labels
+        </label>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.150.0/build/three.module.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'https://unpkg.com/three@0.150.0/examples/jsm/controls/OrbitControls.js';
+
+        import {
+            PathFinder,
+            ColorScale,
+            CatmullRom
+        } from '../dist/three-contour.esm.js';
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf5f5f5);
+
+        const camera = new THREE.PerspectiveCamera(
+            50,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(0, 0, 18);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Generate ripple data
+        function generateRipples(nx, ny) {
+            const data = [];
+            for (let j = 0; j < ny; j++) {
+                const row = [];
+                for (let i = 0; i < nx; i++) {
+                    const x = (i - nx / 2) / (nx / 4);
+                    const y = (j - ny / 2) / (ny / 4);
+                    const r = Math.sqrt(x * x + y * y);
+                    // Ripple pattern
+                    const value = Math.sin(r * 4) / (r + 0.5);
+                    row.push(value);
+                }
+                data.push(row);
+            }
+            return data;
+        }
+
+        const data = generateRipples(60, 60);
+        const pathFinder = new PathFinder(data);
+
+        let linesGroup = new THREE.Group();
+        let labelsGroup = new THREE.Group();
+        scene.add(linesGroup);
+        scene.add(labelsGroup);
+
+        let currentLineWidth = 2;
+        let currentLevelCount = 15;
+        let showLabels = false;
+
+        function createContourLines() {
+            // Clear previous
+            scene.remove(linesGroup);
+            scene.remove(labelsGroup);
+            linesGroup = new THREE.Group();
+            labelsGroup = new THREE.Group();
+
+            const colorScale = new ColorScale('Jet');
+            const zmin = -1;
+            const zmax = 1;
+
+            // Create levels
+            const step = (zmax - zmin) / (currentLevelCount + 1);
+            const levels = [];
+            for (let i = 1; i <= currentLevelCount; i++) {
+                levels.push(zmin + i * step);
+            }
+
+            // Create contour lines
+            for (const level of levels) {
+                const paths = pathFinder.findPaths(level);
+                const normalizedValue = (level - zmin) / (zmax - zmin);
+                const color = colorScale.getColor(normalizedValue);
+
+                for (const path of paths) {
+                    if (path.points.length < 2) continue;
+
+                    // Apply smoothing
+                    const smoother = new CatmullRom(path.points, path.isClosed);
+                    const smoothPoints = smoother.getPoints(5);
+
+                    const points = smoothPoints.map(p =>
+                        new THREE.Vector3(
+                            (p.x - 30) * 0.25,
+                            (30 - p.y) * 0.25,
+                            0
+                        )
+                    );
+
+                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                    const material = new THREE.LineBasicMaterial({
+                        color,
+                        linewidth: currentLineWidth
+                    });
+                    const line = new THREE.Line(geometry, material);
+                    linesGroup.add(line);
+
+                    // Add label at midpoint if enabled
+                    if (showLabels && path.isClosed && points.length > 10) {
+                        const midIndex = Math.floor(points.length / 2);
+                        const labelPos = points[midIndex];
+
+                        // Create canvas texture for label
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 64;
+                        canvas.height = 32;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(0, 0, 64, 32);
+                        ctx.fillStyle = color;
+                        ctx.font = 'bold 16px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(level.toFixed(2), 32, 22);
+
+                        const texture = new THREE.CanvasTexture(canvas);
+                        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+                        const sprite = new THREE.Sprite(spriteMaterial);
+                        sprite.position.copy(labelPos);
+                        sprite.position.z += 0.1;
+                        sprite.scale.set(1.5, 0.75, 1);
+                        labelsGroup.add(sprite);
+                    }
+                }
+            }
+
+            scene.add(linesGroup);
+            scene.add(labelsGroup);
+        }
+
+        // Initial render
+        createContourLines();
+
+        // UI handlers
+        document.getElementById('lineWidth').addEventListener('input', (e) => {
+            currentLineWidth = parseFloat(e.target.value);
+            document.getElementById('lineWidthValue').textContent = currentLineWidth;
+            createContourLines();
+        });
+
+        document.getElementById('levelCount').addEventListener('input', (e) => {
+            currentLevelCount = parseInt(e.target.value);
+            document.getElementById('levelCountValue').textContent = currentLevelCount;
+            createContourLines();
+        });
+
+        document.getElementById('showLabels').addEventListener('change', (e) => {
+            showLabels = e.target.checked;
+            createContourLines();
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

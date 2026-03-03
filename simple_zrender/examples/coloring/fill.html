@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>填充模式 | zrender-contour</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f9f9f9; }
+    .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem 0; color: #333; }
+    .description { color: #666; margin-bottom: 1.5rem; line-height: 1.6; }
+    #main { border: 1px solid #ddd; background: #fff; height: 400px; border-radius: 4px; }
+    .code-block { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 4px; overflow-x: auto; margin-top: 1.5rem; }
+    pre { margin: 0; font-size: 13px; font-family: 'Consolas', 'Monaco', monospace; }
+    .keyword { color: #569cd6; }
+    .string { color: #ce9178; }
+    .number { color: #b5cea8; }
+    .comment { color: #6a9955; }
+    .nav { margin-bottom: 1rem; }
+    .nav a { color: #0066cc; text-decoration: none; }
+    .nav a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav"><a href="../index.html">← 返回示例列表</a></div>
+    <h1>填充模式 (fill)</h1>
+    <p class="description">
+      在等值线之间填充颜色，形成类似地形图的效果。使用 Polygon 图形填充区域。
+    </p>
+    <div id="main"></div>
+    <div class="code-block">
+      <pre><span class="comment">// 填充模式：使用 Polygon 填充区域</span>
+<span class="keyword">const</span> polygon = <span class="keyword">new</span> zrender.Polygon({
+  shape: { points: points },
+  style: {
+    fill: color,
+    stroke: <span class="string">'#333'</span>,
+    lineWidth: <span class="number">1</span>
+  }
+});
+zr.add(polygon);</pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as zrender from 'https://cdn.jsdelivr.net/npm/zrender@5/+esm';
+    import { MarchingSquares, PathFinder } from '../../dist/zrender-contour.esm.js';
+    import { terrainGrid } from '../shared/data.js';
+
+    const data = terrainGrid;
+    const levels = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+
+    // 初始化 ZRender
+    const zr = zrender.init(document.getElementById('main'));
+    const width = zr.getWidth();
+    const height = zr.getHeight();
+    const margin = 40;
+
+    const nx = data.z[0].length, ny = data.z.length;
+    const scaleX = (width - 2 * margin) / nx;
+    const scaleY = (height - 2 * margin) / ny;
+
+    // Viridis 色阶
+    const viridis = [
+      [0.1, '#440154'],
+      [0.3, '#3b528b'],
+      [0.5, '#21918c'],
+      [0.7, '#5ec962'],
+      [0.9, '#fde725']
+    ];
+
+    function getColor(level) {
+      for (let i = 0; i < viridis.length - 1; i++) {
+        if (level >= viridis[i][0] && level < viridis[i+1][0]) {
+          const t = (level - viridis[i][0]) / (viridis[i+1][0] - viridis[i][0]);
+          return viridis[i][1]; // 简化：使用分段颜色
+        }
+      }
+      return viridis[viridis.length - 1][1];
+    }
+
+    // 计算等值线
+    const ms = new MarchingSquares(data, levels);
+    const levelInfo = ms.computeLevels();
+
+    // 从外到内渲染填充
+    for (let i = levels.length - 1; i >= 0; i--) {
+      const level = levels[i];
+      const info = levelInfo.get(level);
+      if (!info) continue;
+
+      const finder = new PathFinder(data, info);
+      const result = finder.findAllPaths();
+
+      const color = getColor(level);
+
+      for (const path of result.paths) {
+        if (path.length < 3) continue;
+        const points = path.map(p => [
+          margin + p.x * scaleX,
+          margin + p.y * scaleY
+        ]);
+
+        zr.add(new zrender.Polygon({
+          shape: { points },
+          style: { fill: color, stroke: '#333', lineWidth: 0.5 }
+        }));
+      }
+    }
+
+    // 添加边框
+    zr.add(new zrender.Rect({
+      shape: { x: margin, y: margin, width: nx * scaleX, height: ny * scaleY },
+      style: { stroke: '#333', lineWidth: 1, fill: 'none' }
+    }));
+  </script>
+</body>
+</html>
