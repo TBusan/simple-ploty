@@ -11,6 +11,7 @@
 | `npm-project-setup` | NPM 项目初始化与配置 | - |
 | `contour-marching-squares` | Marching Squares 算法实现 | contour-marching-squares.md |
 | `contour-corner-filling` | 边界角落填充处理 | contour-corner-filling.md |
+| `contour-smoothing` | 路径平滑处理（Centripetal Catmull-Rom） | contour-smoothing.md |
 | `contour-coloring-modes` | 四种着色模式实现 | contour-coloring-modes.md |
 | `contour-labels` | 标签放置算法 | contour-labels.md |
 | `colorbar-implementation` | ColorBar 组件实现 | colorbar-implementation.md |
@@ -27,15 +28,18 @@
 2. `contour-marching-squares` - Marching Squares 算法
 3. `contour-corner-filling` - 边界角落处理
 
-### 阶段 2: 渲染功能
-4. `contour-coloring-modes` - 着色模式
+### 阶段 2: 平滑处理
+4. `contour-smoothing` - 路径平滑（Centripetal Catmull-Rom 样条）
 
-### 阶段 3: 增强功能
-5. `contour-labels` - 标签放置
-6. `colorbar-implementation` - ColorBar
+### 阶段 3: 渲染功能
+5. `contour-coloring-modes` - 着色模式
 
-### 阶段 4: 交互功能
-7. `contour-interactions` - 交互事件
+### 阶段 4: 增强功能
+6. `contour-labels` - 标签放置
+7. `colorbar-implementation` - ColorBar
+
+### 阶段 5: 交互功能
+8. `contour-interactions` - 交互事件
 
 ## 使用方法
 
@@ -57,6 +61,7 @@ simple_zrender/
     ├── npm-project-setup.md
     ├── contour-marching-squares.md
     ├── contour-corner-filling.md
+    ├── contour-smoothing.md
     ├── contour-coloring-modes.md
     ├── contour-labels.md
     ├── colorbar-implementation.md

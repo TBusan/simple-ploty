@@ -12,6 +12,7 @@
 |---------|---------|--------|
 | Marching Squares 算法 | contour-marching-squares.md | P0 |
 | 边界角落填充 | contour-corner-filling.md | P0 |
+| **路径平滑处理** | **contour-smoothing.md** | **P0** |
 | Null 数据处理 | contour-null-data-handling.md | P1 |
 | 坐标轴与对数处理 | contour-axis-log-handling.md | P1 |
 | 四种着色模式 | contour-coloring-modes.md | P0 |
@@ -239,7 +240,186 @@ expect(pathInfo[0].crossings.size).toBeGreaterThan(0);
 
 ---
 
-### 阶段 3: 填充与着色 (Day 8-10)
+### 阶段 3: 平滑处理 (Day 8-9)
+
+#### 3.1 平滑算法概述
+
+Plotly.js 使用 **Centripetal Catmull-Rom 样条曲线** 进行平滑处理，这是一种广义的 Catmull-Rom 样条。
+
+**核心参数**:
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| 类型 | number | 平滑参数 |
+| 最小值 | 0 | 无平滑（折线） |
+| 最大值 | 1.3 | 最大平滑 |
+| 默认值 | 1 | 推荐值 |
+| 算法 | Centripetal Catmull-Rom | α = 0.5 |
+
+#### 3.2 平滑实现
+
+**文件**: `src/contour/line/Smoothing.ts`
+
+**核心方法**:
+- `makeTangent()`: 计算切线控制点
+- `smoothOpen()`: 开放路径平滑
+- `smoothClosed()`: 闭合路径平滑
+
+```typescript
+// 切线计算函数
+function makeTangent(
+  prevPt: Point,
+  thisPt: Point,
+  nextPt: Point,
+  smoothness: number
+): [Point, Point] {
+  const CATMULL_ROM_EXP = 0.5; // Centripetal 参数
+
+  // 计算方向向量
+  const d1x = prevPt.x - thisPt.x;
+  const d1y = prevPt.y - thisPt.y;
+  const d2x = nextPt.x - thisPt.x;
+  const d2y = nextPt.y - thisPt.y;
+
+  // Centripetal 参数化
+  const d1a = Math.pow(d1x * d1x + d1y * d1y, CATMULL_ROM_EXP / 2);
+  const d2a = Math.pow(d2x * d2x + d2y * d2y, CATMULL_ROM_EXP / 2);
+
+  // 计算切线方向
+  const numx = (d2a * d2a * d1x - d1a * d1a * d2x) * smoothness;
+  const numy = (d2a * d2a * d1y - d1a * d1a * d2y) * smoothness;
+
+  // 入切线和出切线分母
+  const denom1 = 3 * d2a * (d1a + d2a);
+  const denom2 = 3 * d1a * (d1a + d2a);
+
+  return [
+    { x: thisPt.x + (denom1 && numx / denom1), y: thisPt.y + (denom1 && numy / denom1) },
+    { x: thisPt.x - (denom2 && numx / denom2), y: thisPt.y - (denom2 && numy / denom2) }
+  ];
+}
+```
+
+#### 3.3 开放路径平滑
+
+```typescript
+// 用于边缘路径（edgepaths）
+function smoothOpen(pts: Point[], smoothness: number): string {
+  if (pts.length < 3) {
+    return 'M' + pts.map(p => `${p.x},${p.y}`).join('L');
+  }
+
+  let path = `M${pts[0].x},${pts[0].y}`;
+  const tangents: [Point, Point][] = [];
+
+  // 为每个内部点计算切线
+  for (let i = 1; i < pts.length - 1; i++) {
+    tangents.push(makeTangent(pts[i - 1], pts[i], pts[i + 1], smoothness));
+  }
+
+  // 起始段：二次贝塞尔曲线
+  path += `Q${tangents[0][0].x},${tangents[0][0].y} ${pts[1].x},${pts[1].y}`;
+
+  // 中间段：三次贝塞尔曲线
+  for (let i = 2; i < pts.length - 1; i++) {
+    path += `C${tangents[i - 2][1].x},${tangents[i - 2][1].y} ` +
+            `${tangents[i - 1][0].x},${tangents[i - 1][0].y} ` +
+            `${pts[i].x},${pts[i].y}`;
+  }
+
+  // 结束段：二次贝塞尔曲线
+  const lastIdx = pts.length - 1;
+  path += `Q${tangents[lastIdx - 2][1].x},${tangents[lastIdx - 2][1].y} ` +
+          `${pts[lastIdx].x},${pts[lastIdx].y}`;
+
+  return path;
+}
+```
+
+#### 3.4 闭合路径平滑
+
+```typescript
+// 用于内部闭合路径（paths）
+function smoothClosed(pts: Point[], smoothness: number): string {
+  if (pts.length < 3) {
+    return 'M' + pts.map(p => `${p.x},${p.y}`).join('L') + 'Z';
+  }
+
+  let path = `M${pts[0].x},${pts[0].y}`;
+  const pLast = pts.length - 1;
+
+  // 计算所有点的切线（包括首尾点的循环处理）
+  const tangents: [Point, Point][] = [
+    makeTangent(pts[pLast], pts[0], pts[1], smoothness)
+  ];
+  for (let i = 1; i < pLast; i++) {
+    tangents.push(makeTangent(pts[i - 1], pts[i], pts[i + 1], smoothness));
+  }
+  tangents.push(makeTangent(pts[pLast - 1], pts[pLast], pts[0], smoothness));
+
+  // 所有段都使用三次贝塞尔曲线
+  for (let i = 1; i <= pLast; i++) {
+    path += `C${tangents[i - 1][1].x},${tangents[i - 1][1].y} ` +
+            `${tangents[i][0].x},${tangents[i][0].y} ` +
+            `${pts[i].x},${pts[i].y}`;
+  }
+
+  // 闭合回到起点
+  path += `C${tangents[pLast][1].x},${tangents[pLast][1].y} ` +
+          `${tangents[0][0].x},${tangents[0][0].y} ` +
+          `${pts[0].x},${pts[0].y}Z`;
+
+  return path;
+}
+```
+
+#### 3.5 线条与填充一致性保证
+
+**核心设计理念**: 平滑处理在 SVG 路径生成阶段应用，而非数据预处理阶段。
+
+```
+数据流架构:
+
+                    ┌─────────────────┐
+                    │   原始路径点      │
+                    │  (未经平滑)       │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              │                              │
+              ▼                              ▼
+    ┌──────────────────┐          ┌──────────────────┐
+    │    填充渲染       │          │    线条渲染       │
+    │  smoothOpen()    │          │  smoothOpen()    │
+    │  smoothClosed()  │          │  smoothClosed()  │
+    └────────┬─────────┘          └────────┬──────────┘
+             │                              │
+             └──────────────┬──────────────┘
+                            │
+                            ▼
+                   ┌─────────────────┐
+                   │  相同的平滑算法   │
+                   │  = 完美对齐      │
+                   └─────────────────┘
+```
+
+#### 任务列表
+
+- [ ] 实现 `makeTangent()` 切线计算
+- [ ] 实现 `smoothOpen()` 开放路径平滑
+- [ ] 实现 `smoothClosed()` 闭合路径平滑
+- [ ] 确保填充和线条使用相同平滑算法
+- [ ] 编写单元测试
+
+#### 验收标准
+
+- 平滑参数 0 产生折线
+- 平滑参数 1 产生平滑曲线
+- 填充区域与线条完美对齐
+- 无自相交问题
+
+---
+
+### 阶段 4: 填充与着色 (Day 10-12)
 
 #### 3.1 颜色映射
 
@@ -281,7 +461,7 @@ const contour = new Contour(zrender, {
 
 ---
 
-### 阶段 4: 坐标轴与 Null 处理 (Day 11-13)
+### 阶段 5: 坐标轴与 Null 处理 (Day 13-15)
 
 #### 4.1 坐标轴系统
 
@@ -309,7 +489,7 @@ const contour = new Contour(zrender, {
 
 ---
 
-### 阶段 5: 标签与 ColorBar (Day 14-16)
+### 阶段 6: 标签与 ColorBar (Day 16-18)
 
 #### 5.1 标签放置
 
@@ -338,7 +518,7 @@ const contour = new Contour(zrender, {
 
 ---
 
-### 阶段 6: 交互与约束等值线 (Day 17-19)
+### 阶段 7: 交互与约束等值线 (Day 19-21)
 
 #### 6.1 交互功能
 
@@ -365,7 +545,7 @@ const contour = new Contour(zrender, {
 
 ---
 
-### 阶段 7: 打包与文档 (Day 20-21)
+### 阶段 8: 打包与文档 (Day 22-23)
 
 #### 任务列表
 
@@ -511,11 +691,12 @@ describe('Contour', () => {
 | 版本 | 功能 | 时间 |
 |------|------|------|
 | 0.1.0 | Marching Squares + 基础填充 | Day 7 |
-| 0.2.0 | 四种着色模式 | Day 10 |
-| 0.3.0 | 坐标轴 + Null 处理 | Day 13 |
-| 0.4.0 | 标签 + ColorBar | Day 16 |
-| 0.5.0 | 交互 + 约束等值线 | Day 19 |
-| 1.0.0 | 完整功能 + 文档 | Day 21 |
+| 0.2.0 | 平滑处理 | Day 9 |
+| 0.3.0 | 四种着色模式 | Day 12 |
+| 0.4.0 | 坐标轴 + Null 处理 | Day 15 |
+| 0.5.0 | 标签 + ColorBar | Day 18 |
+| 0.6.0 | 交互 + 约束等值线 | Day 21 |
+| 1.0.0 | 完整功能 + 文档 | Day 23 |
 
 ### 6.2 npm 发布
 
@@ -540,11 +721,13 @@ describe('Contour', () => {
 
 ## 七、参考文档
 
-1. [contour-marching-squares.md](./contour-marching-squares.md) - Marching Squares 算法
-2. [contour-corner-filling.md](./contour-corner-filling.md) - 边界角落处理
-3. [contour-coloring-modes.md](./contour-coloring-modes.md) - 着色模式
-4. [contour-labels.md](./contour-labels.md) - 标签放置
-5. [colorbar-implementation.md](./colorbar-implementation.md) - ColorBar 实现
+1. [contour-marching-squares.md](../../word/contour-marching-squares.md) - Marching Squares 算法
+2. [contour-corner-filling.md](../../word/contour-corner-filling.md) - 边界角落处理
+3. [contour-smoothing.md](../../word/contour-smoothing.md) - 路径平滑处理
+4. [contour-coloring-modes.md](../../word/contour-coloring-modes.md) - 着色模式
+5. [contour-labels.md](../../word/contour-labels.md) - 标签放置
+6. [colorbar-implementation.md](../../word/colorbar-implementation.md) - ColorBar 实现
+7. [contour-interactions.md](../../word/contour-interactions.md) - 交互功能
 
 ---
 
