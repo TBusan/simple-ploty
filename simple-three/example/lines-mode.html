@@ -147,8 +147,7 @@
                     if (path.points.length < 2) continue;
 
                     // Apply smoothing
-                    const smoother = new CatmullRom(path.points, path.isClosed);
-                    const smoothPoints = smoother.getPoints(5);
+                    const smoothPoints = CatmullRom.smooth(path.points, 1.3);
 
                     const points = smoothPoints.map(p =>
                         new THREE.Vector3(

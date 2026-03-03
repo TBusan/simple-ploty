@@ -1,12 +1,34 @@
-// Fill rendering using band-based approach (Plotly style)
+// Fill rendering using layer-based approach (ZRender/Plotly style)
 import * as THREE from 'three';
 import type { PathInfo, Point } from '../algorithms/types';
 import { makeColorMap } from '../coloring/ColorMap';
 import type { ContourTrace } from '../core/ContourOptions';
 
 /**
+ * Options for creating fill meshes from paths
+ */
+export interface CreateFillMeshesOptions {
+    /** All paths grouped by level */
+    levelPaths: Map<number, PathInfo[]>;
+    /** Color scale function - converts normalized value (0-1) to color */
+    colorScale: (normalizedValue: number) => string;
+    /** Minimum data value */
+    zmin: number;
+    /** Maximum data value */
+    zmax: number;
+    /** Data bounds (optional) */
+    bounds?: { minX: number; maxX: number; minY: number; maxY: number };
+    /** Coordinate transform function (optional) */
+    transform?: (point: Point) => { x: number; y: number };
+}
+
+/**
  * FillRenderer creates Three.js meshes for filled contour regions
- * using band-based coloring (Plotly style)
+ * using layer-based rendering (similar to ZRender/Plotly)
+ *
+ * The key insight: instead of using complex hole calculations,
+ * we render layers in order (from background to foreground),
+ * letting later layers naturally cover earlier ones.
  */
 export class FillRenderer {
     private scene: THREE.Scene;
@@ -26,52 +48,6 @@ export class FillRenderer {
         this.meshGroup = new THREE.Group();
         this.scene.add(this.meshGroup);
         this.createMeshes();
-    }
-
-    /**
-     * Check if a point is inside a polygon (ray casting algorithm)
-     */
-    private isPointInPolygon(point: Point, polygon: Point[]): boolean {
-        let inside = false;
-        const n = polygon.length;
-        for (let i = 0, j = n - 1; i < n; j = i++) {
-            const xi = polygon[i].x, yi = polygon[i].y;
-            const xj = polygon[j].x, yj = polygon[j].y;
-            if (((yi > point.y) !== (yj > point.y)) &&
-                (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi)) {
-                inside = !inside;
-            }
-        }
-        return inside;
-    }
-
-    /**
-     * Check if polygon A contains polygon B (using B's centroid)
-     */
-    private polygonContainsPolygon(outer: Point[], inner: Point[]): boolean {
-        // Calculate centroid of inner polygon
-        let cx = 0, cy = 0;
-        for (const p of inner) {
-            cx += p.x;
-            cy += p.y;
-        }
-        cx /= inner.length;
-        cy /= inner.length;
-        return this.isPointInPolygon({ x: cx, y: cy }, outer);
-    }
-
-    /**
-     * Calculate polygon area (signed, positive = counter-clockwise)
-     */
-    private polygonArea(points: Point[]): number {
-        let area = 0;
-        const n = points.length;
-        for (let i = 0; i < n; i++) {
-            const j = (i + 1) % n;
-            area += points[i].x * points[j].y;
-            area -= points[j].x * points[i].y;
-        }
-        return area / 2;
     }
 
     /**
@@ -97,63 +73,47 @@ export class FillRenderer {
     }
 
     /**
-     * Create filled meshes using band-based approach
-     * Each band is the region between two consecutive levels
+     * Create filled meshes using layer-based approach
      */
     private createMeshes(): void {
         const contours = this.trace.contours || {};
-        if (!contours || contours.coloring !== 'fill') return;
+        if (contours.coloring !== 'fill') return;
 
-        // Get levels from paths (more reliable than calculating)
+        // Get levels from paths
         const levels = this.getLevelsFromPaths();
         if (levels.length === 0) return;
 
-        const levelSize = contours.size || 1;
+        // Calculate data bounds
+        const bounds = this.calculateBounds();
 
-        // Process each band: from levels[i] to levels[i+1]
-        // Band color is based on the middle value of the band
-        for (let i = 0; i < levels.length - 1; i++) {
-            const lowerLevel = levels[i];
-            const upperLevel = levels[i + 1];
-            const midLevel = (lowerLevel + upperLevel) / 2;
-            const color = this.colorMap(midLevel);
+        // Step 1: Render background rectangle
+        const bgColor = this.colorMap(this.zmin);
+        const bgShape = new THREE.Shape();
+        bgShape.moveTo(bounds.minX, -bounds.minY);
+        bgShape.lineTo(bounds.maxX, -bounds.minY);
+        bgShape.lineTo(bounds.maxX, -bounds.maxY);
+        bgShape.lineTo(bounds.minX, -bounds.maxY);
+        bgShape.closePath();
 
-            // Get paths at the lower level (outer boundary of band)
-            const lowerPaths = this.getPathsForLevel(lowerLevel);
-            const lowerClosedPaths = lowerPaths.filter(p => p.isClosed && p.points.length >= 3);
+        const bgGeometry = new THREE.ShapeGeometry(bgShape);
+        const bgMaterial = new THREE.MeshBasicMaterial({
+            color: bgColor,
+            side: THREE.DoubleSide
+        });
+        const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
+        bgMesh.renderOrder = 0;
+        this.meshes.push(bgMesh);
+        this.meshGroup.add(bgMesh);
 
-            // Get paths at the upper level (inner boundary / holes)
-            const upperPaths = this.getPathsForLevel(upperLevel);
-            const upperClosedPaths = upperPaths.filter(p => p.isClosed && p.points.length >= 3);
+        // Step 2: Render each level's closed paths (from low to high)
+        // Each level renders polygons that cover the previous layer
+        for (let i = 0; i < levels.length; i++) {
+            const level = levels[i];
+            const color = this.colorMap(level);
+            const paths = this.getPathsForLevel(level);
+            const closedPaths = paths.filter(p => p.isClosed && p.points.length >= 3);
 
-            // For each lower level path, create a shape with upper level paths as holes
-            for (const lowerPath of lowerClosedPaths) {
-                const shape = this.createShapeWithHoles(lowerPath.points, upperClosedPaths);
-                if (!shape) continue;
-
-                const geometry = new THREE.ShapeGeometry(shape);
-                const material = new THREE.MeshBasicMaterial({
-                    color,
-                    side: THREE.DoubleSide
-                });
-                const mesh = new THREE.Mesh(geometry, material);
-                this.meshes.push(mesh);
-                this.meshGroup.add(mesh);
-            }
-        }
-
-        // Handle the highest band (from last level to zmax)
-        // This is the innermost region of peaks
-        if (levels.length > 0) {
-            const lastLevel = levels[levels.length - 1];
-            const midLevel = (lastLevel + this.zmax) / 2;
-            const color = this.colorMap(midLevel);
-
-            const lastPaths = this.getPathsForLevel(lastLevel);
-            const lastClosedPaths = lastPaths.filter(p => p.isClosed && p.points.length >= 3);
-
-            // These are solid fills (no holes) for the peak regions
-            for (const path of lastClosedPaths) {
+            for (const path of closedPaths) {
                 const shape = this.createShape(path.points);
                 if (!shape) continue;
 
@@ -163,34 +123,54 @@ export class FillRenderer {
                     side: THREE.DoubleSide
                 });
                 const mesh = new THREE.Mesh(geometry, material);
+                // Higher levels have higher render order (rendered on top)
+                mesh.renderOrder = i + 1;
                 this.meshes.push(mesh);
                 this.meshGroup.add(mesh);
             }
         }
+    }
 
-        // Handle the lowest band (from zmin to first level)
-        // This fills the background region outside all contours
-        if (levels.length > 0) {
-            const firstLevel = levels[0];
-            const midLevel = (this.zmin + firstLevel) / 2;
-            const color = this.colorMap(midLevel);
+    /**
+     * Calculate data bounds from trace
+     */
+    private calculateBounds(): { minX: number; maxX: number; minY: number; maxY: number } {
+        let minX = -10, maxX = 10;
+        let minY = -10, maxY = 10;
 
-            const firstPaths = this.getPathsForLevel(firstLevel);
-            const firstClosedPaths = firstPaths.filter(p => p.isClosed && p.points.length >= 3);
+        // Use trace x/y bounds if available
+        if (this.trace.x && this.trace.x.length > 0) {
+            minX = Math.min(...this.trace.x);
+            maxX = Math.max(...this.trace.x);
+        }
+        if (this.trace.y && this.trace.y.length > 0) {
+            minY = Math.min(...this.trace.y);
+            maxY = Math.max(...this.trace.y);
+        }
 
-            // Create background shape with first level paths as holes
-            const bgShape = this.createBackgroundShape(firstClosedPaths);
-            if (bgShape) {
-                const geometry = new THREE.ShapeGeometry(bgShape);
-                const material = new THREE.MeshBasicMaterial({
-                    color,
-                    side: THREE.DoubleSide
-                });
-                const mesh = new THREE.Mesh(geometry, material);
-                this.meshes.push(mesh);
-                this.meshGroup.add(mesh);
+        // Fallback: calculate from path bounds
+        if (this.trace.paths && this.trace.paths.length > 0) {
+            let pathMinX = Infinity, pathMaxX = -Infinity;
+            let pathMinY = Infinity, pathMaxY = -Infinity;
+            for (const path of this.trace.paths) {
+                for (const p of path.points) {
+                    pathMinX = Math.min(pathMinX, p.x);
+                    pathMaxX = Math.max(pathMaxX, p.x);
+                    pathMinY = Math.min(pathMinY, p.y);
+                    pathMaxY = Math.max(pathMaxY, p.y);
+                }
+            }
+            if (isFinite(pathMinX)) {
+                // Add margin
+                const margin = Math.max(1, (pathMaxX - pathMinX) * 0.1);
+                minX = Math.min(minX, pathMinX - margin);
+                maxX = Math.max(maxX, pathMaxX + margin);
+                minY = Math.min(minY, pathMinY - margin);
+                maxY = Math.max(maxY, pathMaxY + margin);
             }
         }
+
+        return { minX, maxX, minY, maxY };
     }
 
     /**
@@ -211,135 +191,6 @@ export class FillRenderer {
     }
 
     /**
-     * Create a shape with holes from path points
-     */
-    private createShapeWithHoles(
-        outerPoints: Point[],
-        potentialHoles: PathInfo[]
-    ): THREE.Shape | null {
-        if (outerPoints.length < 3) return null;
-
-        const shape = new THREE.Shape();
-
-        // Determine winding order
-        const area = this.polygonArea(outerPoints);
-        const isCCW = area > 0;
-
-        // Create outer path (ensure counter-clockwise for Three.js)
-        const order = isCCW ?
-            { start: 0, end: outerPoints.length, step: 1 } :
-            { start: outerPoints.length - 1, end: -1, step: -1 };
-
-        let first = true;
-        for (let j = order.start; j !== order.end; j += order.step) {
-            const px = outerPoints[j].x;
-            const py = -outerPoints[j].y; // Flip Y for Three.js
-            if (first) {
-                shape.moveTo(px, py);
-                first = false;
-            } else {
-                shape.lineTo(px, py);
-            }
-        }
-        shape.closePath();
-
-        // Add holes for paths that are inside the outer path
-        for (const holePath of potentialHoles) {
-            if (!this.polygonContainsPolygon(outerPoints, holePath.points)) continue;
-
-            const hole = new THREE.Path();
-            const holePoints = holePath.points;
-
-            // Hole should be clockwise (opposite winding of outer)
-            const holeOrder = isCCW ?
-                { start: holePoints.length - 1, end: -1, step: -1 } :
-                { start: 0, end: holePoints.length, step: 1 };
-
-            let holeFirst = true;
-            for (let j = holeOrder.start; j !== holeOrder.end; j += holeOrder.step) {
-                const px = holePoints[j].x;
-                const py = -holePoints[j].y;
-                if (holeFirst) {
-                    hole.moveTo(px, py);
-                    holeFirst = false;
-                } else {
-                    hole.lineTo(px, py);
-                }
-            }
-            hole.closePath();
-            shape.holes.push(hole);
-        }
-
-        return shape;
-    }
-
-    /**
-     * Create background shape (full area with paths as holes)
-     */
-    private createBackgroundShape(holes: PathInfo[]): THREE.Shape | null {
-        // Calculate data bounds from trace
-        let minX = -10, maxX = 10;
-        let minY = -10, maxY = 10;
-
-        // Use trace x/y bounds if available
-        if (this.trace.x && this.trace.x.length > 0) {
-            minX = Math.min(...this.trace.x);
-            maxX = Math.max(...this.trace.x);
-        }
-        if (this.trace.y && this.trace.y.length > 0) {
-            minY = Math.min(...this.trace.y);
-            maxY = Math.max(...this.trace.y);
-        }
-
-        // Fallback: calculate from path bounds
-        if (holes.length > 0) {
-            let pathMinX = Infinity, pathMaxX = -Infinity;
-            let pathMinY = Infinity, pathMaxY = -Infinity;
-            for (const path of holes) {
-                for (const p of path.points) {
-                    pathMinX = Math.min(pathMinX, p.x);
-                    pathMaxX = Math.max(pathMaxX, p.x);
-                    pathMinY = Math.min(pathMinY, p.y);
-                    pathMaxY = Math.max(pathMaxY, p.y);
-                }
-            }
-            // Expand bounds slightly
-            minX = Math.min(minX, pathMinX - 1);
-            maxX = Math.max(maxX, pathMaxX + 1);
-            minY = Math.min(minY, pathMinY - 1);
-            maxY = Math.max(maxY, pathMaxY + 1);
-        }
-
-        const shape = new THREE.Shape();
-        shape.moveTo(minX, -minY);
-        shape.lineTo(maxX, -minY);
-        shape.lineTo(maxX, -maxY);
-        shape.lineTo(minX, -maxY);
-        shape.closePath();
-
-        // Add all paths as holes (counter-clockwise)
-        for (const holePath of holes) {
-            const hole = new THREE.Path();
-            const holePoints = holePath.points;
-
-            // Counter-clockwise for hole (reverse order)
-            for (let j = holePoints.length - 1; j >= 0; j--) {
-                const px = holePoints[j].x;
-                const py = -holePoints[j].y;
-                if (j === holePoints.length - 1) {
-                    hole.moveTo(px, py);
-                } else {
-                    hole.lineTo(px, py);
-                }
-            }
-            hole.closePath();
-            shape.holes.push(hole);
-        }
-
-        return shape;
-    }
-
-    /**
      * Clean up resources
      */
     dispose(): void {
@@ -351,5 +202,145 @@ export class FillRenderer {
         }
         this.meshes = [];
         this.scene.remove(this.meshGroup);
+    }
+
+    /**
+     * Static method to create fill meshes from PathFinder results
+     *
+     * This is the recommended way to create filled contours when using PathFinder directly.
+     *
+     * @example
+     * ```typescript
+     * const pathFinder = new PathFinder(data);
+     * const levels = [-8, -7, -6, ..., 8];
+     *
+     * // Collect paths for all levels
+     * const levelPaths = new Map();
+     * for (const level of levels) {
+     *     levelPaths.set(level, pathFinder.findPaths(level));
+     * }
+     *
+     * // Create fill meshes
+     * const colorScale = new ColorScale('Viridis');
+     * const meshes = FillRenderer.createFillMeshes({
+     *     levelPaths,
+     *     colorScale: (v) => colorScale.getColor((v - zmin) / (zmax - zmin)),
+     *     zmin: -8,
+     *     zmax: 8
+     * });
+     *
+     * // Add to scene
+     * meshes.forEach(mesh => scene.add(mesh));
+     * ```
+     */
+    static createFillMeshes(options: CreateFillMeshesOptions): THREE.Mesh[] {
+        const { levelPaths, colorScale, zmin, zmax, bounds, transform } = options;
+        const meshes: THREE.Mesh[] = [];
+
+        // Get sorted levels
+        const levels = Array.from(levelPaths.keys()).sort((a, b) => a - b);
+        if (levels.length === 0) return meshes;
+
+        // Calculate bounds if not provided
+        let minX = -10, maxX = 10;
+        let minY = -10, maxY = 10;
+        if (bounds) {
+            minX = bounds.minX;
+            maxX = bounds.maxX;
+            minY = bounds.minY;
+            maxY = bounds.maxY;
+        } else {
+            // Calculate from all paths
+            for (const paths of levelPaths.values()) {
+                for (const pathInfo of paths) {
+                    for (const p of pathInfo.points) {
+                        minX = Math.min(minX, p.x);
+                        maxX = Math.max(maxX, p.x);
+                        minY = Math.min(minY, p.y);
+                        maxY = Math.max(maxY, p.y);
+                    }
+                }
+            }
+            // Add margin
+            const margin = Math.max(1, (maxX - minX) * 0.1);
+            minX -= margin;
+            maxX += margin;
+            minY -= margin;
+            maxY += margin;
+        }
+
+        // Transform function (default: flip Y axis for Three.js)
+        const tx = transform || ((p: Point) => ({ x: p.x, y: -p.y }));
+
+        // Step 1: Create background rectangle
+        const bgColor = colorScale(0); // Background uses lowest color (normalized to 0)
+        const bgShape = new THREE.Shape();
+        const p0 = tx({ x: minX, y: minY });
+        const p1 = tx({ x: maxX, y: minY });
+        const p2 = tx({ x: maxX, y: maxY });
+        const p3 = tx({ x: minX, y: maxY });
+        bgShape.moveTo(p0.x, p0.y);
+        bgShape.lineTo(p1.x, p1.y);
+        bgShape.lineTo(p2.x, p2.y);
+        bgShape.lineTo(p3.x, p3.y);
+        bgShape.closePath();
+
+        const bgGeometry = new THREE.ShapeGeometry(bgShape);
+        const bgMaterial = new THREE.MeshBasicMaterial({
+            color: bgColor,
+            side: THREE.DoubleSide
+        });
+        const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
+        bgMesh.renderOrder = 0;
+        meshes.push(bgMesh);
+
+        // Step 2: Render each level's closed paths (from low to high)
+        // Each level renders polygons that cover the previous layer
+        for (let i = 0; i < levels.length; i++) {
+            const level = levels[i];
+            const normalizedValue = (level - zmin) / (zmax - zmin);
+            const color = colorScale(normalizedValue);
+            const paths = levelPaths.get(level) || [];
+            const closedPaths = paths.filter(p => p.isClosed && p.points.length >= 3);
+
+            for (const path of closedPaths) {
+                const shape = FillRenderer.createShapeFromPoints(path.points, tx);
+                if (!shape) continue;
+
+                const geometry = new THREE.ShapeGeometry(shape);
+                const material = new THREE.MeshBasicMaterial({
+                    color,
+                    side: THREE.DoubleSide
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+                // Higher levels have higher render order (rendered on top)
+                mesh.renderOrder = i + 1;
+                meshes.push(mesh);
+            }
+        }
+
+        return meshes;
+    }
+
+    /**
+     * Helper: Create a Three.js Shape from points
+     */
+    private static createShapeFromPoints(
+        points: Point[],
+        transform: (p: Point) => { x: number; y: number }
+    ): THREE.Shape | null {
+        if (points.length < 3) return null;
+
+        const shape = new THREE.Shape();
+        const p0 = transform(points[0]);
+        shape.moveTo(p0.x, p0.y);
+
+        for (let i = 1; i < points.length; i++) {
+            const p = transform(points[i]);
+            shape.lineTo(p.x, p.y);
+        }
+        shape.closePath();
+
+        return shape;
     }
 }
