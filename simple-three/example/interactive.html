@@ -259,8 +259,7 @@
 
                         // Apply smoothing if enabled
                         if (settings.smoothing > 0) {
-                            const smoother = new CatmullRom(points, path.isClosed);
-                            points = smoother.getPoints(Math.round(5 * settings.smoothing));
+                            points = CatmullRom.smooth(points, settings.smoothing);
                         }
 
                         const vector3Points = points.map(p =>
