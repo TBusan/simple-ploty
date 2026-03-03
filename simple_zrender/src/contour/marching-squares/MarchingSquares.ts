@@ -77,6 +77,9 @@ export class MarchingSquares {
             z[yi + 1][xi]        // 左下
           ];
 
+          // 检查是否有 null 值，如果有则跳过该单元
+          if (corners.some(c => c === null)) continue;
+
           const mi = getMarchingIndex(level, corners);
           if (mi === 0) continue;  // 无穿越
 

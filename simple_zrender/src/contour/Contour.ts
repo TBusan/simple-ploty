@@ -344,6 +344,7 @@ export class Contour extends zrender.Group {
     const smoothing = this.option.line?.smoothing ?? 1;
     const width = this.option.line?.width ?? 1;
     const useColorScale = this.option.contours?.coloring === 'lines';
+    const showLabels = this.option.contours?.showlabels ?? false;
 
     for (let i = 0; i < this.levels.length; i++) {
       const level = this.levels[i];
@@ -364,6 +365,11 @@ export class Contour extends zrender.Group {
           shape: { points },
           style: { stroke: color, lineWidth: width, fill: 'none' }
         }));
+
+        // 渲染标签
+        if (showLabels) {
+          this.renderLabel(path, level, color);
+        }
       }
 
       // 渲染闭合线条
@@ -374,8 +380,43 @@ export class Contour extends zrender.Group {
           shape: { points },
           style: { stroke: color, lineWidth: width, fill: 'none' }
         }));
+
+        // 渲染标签
+        if (showLabels) {
+          this.renderLabel(path, level, color);
+        }
       }
     }
+  }
+
+  /**
+   * 渲染等值线标签
+   */
+  private renderLabel(path: Point[], level: number, color: string): void {
+    if (path.length < 3) return;
+
+    // 找到路径的中点位置放置标签
+    const midIndex = Math.floor(path.length / 2);
+    const p = path[midIndex];
+    const x = this.toCanvasX(p.x);
+    const y = this.toCanvasY(p.y);
+
+    // 格式化标签文本
+    const labelText = typeof level === 'number' ? level.toFixed(2) : String(level);
+
+    this.add(new zrender.Text({
+      style: {
+        text: labelText,
+        x,
+        y,
+        fill: color,
+        stroke: '#fff',
+        lineWidth: 2,
+        fontSize: 11,
+        fontWeight: 'bold'
+      },
+      z: 1000  // 确保标签在线条上方
+    }));
   }
 
   /**
