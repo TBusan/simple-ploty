@@ -137,12 +137,44 @@
                 levels.push(l);
             }
 
-            // Create filled regions
+            // Coordinate transform
+            const transform = (p) => ({
+                x: (p.x - 30) * 0.3,
+                y: (30 - p.y) * 0.3
+            });
+
+            // Calculate bounds
+            let minX = -10, maxX = 10, minY = -10, maxY = 10;
+
+            // Step 1: Render background rectangle with lowest color
+            const bgColor = colorScale.getColor(0);
+            const bgShape = new THREE.Shape();
+            const p0 = transform({ x: 0, y: 0 });
+            const p1 = transform({ x: 60, y: 0 });
+            const p2 = transform({ x: 60, y: 60 });
+            const p3 = transform({ x: 0, y: 60 });
+            bgShape.moveTo(p0.x, p0.y);
+            bgShape.lineTo(p1.x, p1.y);
+            bgShape.lineTo(p2.x, p2.y);
+            bgShape.lineTo(p3.x, p3.y);
+            bgShape.closePath();
+
+            const bgGeometry = new THREE.ShapeGeometry(bgShape);
+            const bgMaterial = new THREE.MeshBasicMaterial({
+                color: bgColor,
+                side: THREE.DoubleSide
+            });
+            const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
+            bgMesh.renderOrder = 0;
+            fillGroup.add(bgMesh);
+
+            // Step 2: Render each level's closed paths (from low to high)
+            // Each level renders polygons that cover the previous layer
             for (let i = 0; i < levels.length; i++) {
                 const level = levels[i];
                 const paths = pathFinder.findPaths(level);
 
-                // Color for this band (use middle of band)
+                // Color for this level
                 const normalizedValue = (level - zmin) / (zmax - zmin);
                 const color = colorScale.getColor(normalizedValue);
 
@@ -152,17 +184,12 @@
 
                     const shape = new THREE.Shape();
                     const points = path.points;
-
-                    shape.moveTo(
-                        (points[0].x - 30) * 0.3,
-                        (30 - points[0].y) * 0.3
-                    );
+                    const tp0 = transform(points[0]);
+                    shape.moveTo(tp0.x, tp0.y);
 
                     for (let j = 1; j < points.length; j++) {
-                        shape.lineTo(
-                            (points[j].x - 30) * 0.3,
-                            (30 - points[j].y) * 0.3
-                        );
+                        const tp = transform(points[j]);
+                        shape.lineTo(tp.x, tp.y);
                     }
                     shape.closePath();
 
@@ -172,6 +199,8 @@
                         side: THREE.DoubleSide
                     });
                     const mesh = new THREE.Mesh(geometry, material);
+                    // Higher levels have higher render order (rendered on top)
+                    mesh.renderOrder = i + 1;
                     fillGroup.add(mesh);
                 }
             }
